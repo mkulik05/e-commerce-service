@@ -1,0 +1,2 @@
+DELETE FROM orders
+WHERE order_id BETWEEN 1 AND 20;

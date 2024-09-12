@@ -1,0 +1,34 @@
+services:
+
+  migrator:
+    build: migrator/
+    container_name: migrator
+
+    volumes:
+      - ./migrations:/migrations
+
+    command: migrate -database ${POSTGRES_URI} -path /migrations up
+
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+
+  db:
+    build: db/
+    restart: always
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${PSQL_PWD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+    ports:
+      - 5432:5432
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready", "-d", "${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
