@@ -32,3 +32,15 @@ services:
       timeout: 5s
       retries: 3
 
+
+  items_service:
+    build: items
+    restart: always
+    environment: 
+      DATABASE_URI: ${DATABASE_URI}
+    ports:
+      - 8081:8081
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
