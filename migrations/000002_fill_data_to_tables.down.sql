@@ -1,0 +1,8 @@
+DELETE FROM auth_data
+WHERE user_id BETWEEN 1 AND 20;
+
+DELETE FROM items
+WHERE item_id BETWEEN 1 AND 20;
+
+DELETE FROM orders
+WHERE order_id BETWEEN 1 AND 20;

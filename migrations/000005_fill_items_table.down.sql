@@ -1,2 +1,0 @@
-DELETE FROM items
-WHERE item_id BETWEEN 1 AND 20;

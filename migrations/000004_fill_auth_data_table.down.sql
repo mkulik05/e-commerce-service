@@ -1,2 +1,0 @@
-DELETE FROM auth_data
-WHERE user_id BETWEEN 1 AND 20;

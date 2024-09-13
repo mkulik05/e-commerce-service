@@ -7,7 +7,7 @@ services:
     volumes:
       - ./migrations:/migrations
 
-    command: migrate -database ${POSTGRES_URI} -path /migrations up
+    command: migrate -database ${DATABASE_URI} -path /migrations up
 
     depends_on:
       db:
@@ -15,7 +15,7 @@ services:
         restart: true
 
   db:
-    build: db/
+    image: postgres
     restart: always
 
     environment:
