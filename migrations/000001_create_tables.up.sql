@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS items (
     item_amount integer NOT NULL,
     item_price bigint NOT NULL,
     item_description text,
-    bought_times integer NOT NULL
+    times_bought integer NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS auth_data (

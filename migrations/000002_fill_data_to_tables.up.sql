@@ -20,29 +20,29 @@ INSERT INTO auth_data (login, pwd_hash, user_id) VALUES
 ('user19', 'hash19', 19),
 ('user20', 'hash20', 20);
 
-INSERT INTO items (item_id, item_name, item_amount, item_price, item_description) VALUES
-(1, 'Laptop', 50, 100000, 'High performance laptop'),
-(2, 'Smartphone', 100, 30000, 'Latest model smartphone'),
-(3, 'Headphones', 200, 5000, 'Noise-cancelling over-ear headphones'),
-(4, 'Monitor', 75, 15000, '24 inch LED monitor'),
-(5, 'Keyboard', 150, 2000, 'Mechanical gaming keyboard'),
-(6, 'Mouse', 150, 1500, 'Wireless mouse'),
-(7, 'Webcam', 80, 4000, '1080p HD webcam'),
-(8, 'Router', 60, 8000, 'Dual-band Wi-Fi router'),
-(9, 'External Hard Drive', 40, 12000, '1TB external hard drive'),
-(10, 'USB Flash Drive', 200, 1000, '32GB USB flash drive'),
-(11, 'Tablet', 30, 25000, '10 inch Android tablet'),
-(12, 'Smartwatch', 80, 15000, 'Fitness tracking smartwatch'),
-(13, 'Printer', 50, 12000, 'Multifunctional printer'),
-(14, 'Graphics Card', 20, 50000, 'High-end graphics card'),
-(15, 'Gaming Chair', 25, 30000, 'Ergonomic gaming chair'),
-(16, 'Microphone', 100, 3000, 'USB condenser microphone'),
-(17, 'Speakers', 60, 7000, 'Bluetooth portable speakers'),
-(18, 'Power Bank', 150, 2000, '10000mAh power bank'),
-(19, 'VR Headset', 20, 40000, 'Virtual reality headset'),
-(20, 'Cable Management Kit', 100, 500, 'Organize your cables');
+INSERT INTO items (item_id, item_name, item_amount, item_price, item_description, times_bought) VALUES
+(1, 'Laptop', 50, 100000, 'High performance laptop',0),
+(2, 'Smartphone', 100, 30000, 'Latest model smartphone', 0),
+(3, 'Headphones', 200, 5000, 'Noise-cancelling over-ear headphones', 0),
+(4, 'Monitor', 75, 15000, '24 inch LED monitor', 0),
+(5, 'Keyboard', 150, 2000, 'Mechanical gaming keyboard', 0),
+(6, 'Mouse', 150, 1500, 'Wireless mouse', 0),
+(7, 'Webcam', 80, 4000, '1080p HD webcam', 0),
+(8, 'Router', 60, 8000, 'Dual-band Wi-Fi router', 0),
+(9, 'External Hard Drive', 40, 12000, '1TB external hard drive', 0),
+(10, 'USB Flash Drive', 200, 1000, '32GB USB flash drive',0),
+(11, 'Tablet', 30, 25000, '10 inch Android tablet', 0),
+(12, 'Smartwatch', 80, 15000, 'Fitness tracking smartwatch', 0),
+(13, 'Printer', 50, 12000, 'Multifunctional printer', 0),
+(14, 'Graphics Card', 20, 50000, 'High-end graphics card', 0),
+(15, 'Gaming Chair', 25, 30000, 'Ergonomic gaming chair', 0),
+(16, 'Microphone', 100, 3000, 'USB condenser microphone', 0),
+(17, 'Speakers', 60, 7000, 'Bluetooth portable speakers', 0),
+(18, 'Power Bank', 150, 2000, '10000mAh power bank', 0),
+(19, 'VR Headset', 20, 40000, 'Virtual reality headset', 0),
+(20, 'Cable Management Kit', 100, 500, 'Organize your cables', 0);
 
-INSERT INTO public.orders ("time", order_id, items_id, delivery_addr, user_id) VALUES
+INSERT INTO orders ("time", order_id, items_id, delivery_addr, user_id) VALUES
 (NOW(), 1, '{1,2}', '123 Main St, CityA', 1),
 (NOW(), 2, '{3,4}', '456 Park Ave, CityB', 2),
 (NOW(), 3, '{5,6}', '789 Elm St, CityC', 3),
