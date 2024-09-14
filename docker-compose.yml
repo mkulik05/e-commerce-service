@@ -1,8 +1,16 @@
+networks:
+  kafka_net:
+    driver: bridge
+  db_net:
+    driver: bridge
+
 services:
 
   migrator:
     build: migrator/
     container_name: migrator
+    networks:
+      - db_net
 
     volumes:
       - ./migrations:/migrations
@@ -17,12 +25,15 @@ services:
   db:
     image: postgres
     restart: always
+    networks:
+      - db_net
 
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${PSQL_PWD}
       POSTGRES_DB: ${POSTGRES_DB}
 
+    # TODO remove
     ports:
       - 5432:5432
 
@@ -38,10 +49,51 @@ services:
     restart: always
     environment: 
       DATABASE_URI: ${DATABASE_URI}
+
+    networks:
+      - db_net
+
+    # TODO remove
     ports:
       - 8081:8081
+      
     depends_on:
       db:
         condition: service_healthy
         restart: true
 
+  orders:
+    build: api/orders
+    restart: always
+    environment: 
+      DATABASE_URI: ${DATABASE_URI}
+    
+    networks:
+      - db_net
+      - kafka_net
+
+    # TODO remove
+    ports:
+      - 8082:8082
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+      
+
+  kafka:
+    image: 'bitnami/kafka:latest'
+    networks:
+      - kafka_net
+    environment:
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://0.0.0.0:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://192.168.0.109:9094
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+    ports:
+      - 9094:9094

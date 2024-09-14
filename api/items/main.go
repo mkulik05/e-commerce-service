@@ -33,6 +33,7 @@ type RequestParams struct {
 	sort_asc bool
 }
 
+// TODO: fix sql injection vulnerability (search)
 func getSQLQuery(params RequestParams) string {
 	sorting := false
 	additional_params := ""
