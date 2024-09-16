@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 )
 
@@ -18,6 +20,7 @@ type ItemInfo struct {
 	Item_amount int32 `json:"item_amount"`
 	Item_price int32 `json:"item_price"`
 	Item_description string `json:"item_description"`
+	ItemBoughts int `json:"item_bought"`
 }
 
 
@@ -33,36 +36,36 @@ type RequestParams struct {
 	sort_asc bool
 }
 
-// TODO: fix sql injection vulnerability (search)
-func getSQLQuery(params RequestParams) string {
+func getSQLQuery(params RequestParams, dbpool *pgxpool.Pool) (pgx.Rows, error) {
 	sorting := false
 	additional_params := ""
 
-	if params.search != "" {
-		additional_params += "WHERE item_name LIKE %" + params.search + "%"
-	}
-
 	switch params.sorting {
 	case "price":
-		additional_params += " SORT BY price"
+		additional_params += "ORDER BY price"
 		sorting = true
 	case "popularity":
-		additional_params += " SORT BY times_bought"
+		additional_params += "ORDER BY times_bought"
 		sorting = true
 	}
 
 	if sorting && !params.sort_asc {
 		additional_params += " DESC"
 	}
-	return fmt.Sprintf("SELECT item_id, item_name FROM items LIMIT %d OFFSET %d %s", MAX_RETURN_AMOUNT, MAX_RETURN_AMOUNT * params.page, additional_params)
+
+	if params.search != "" {
+		return dbpool.Query(context.Background(), "SELECT item_id, item_name FROM items WHERE item_name LIKE $3 "+additional_params+" LIMIT $1 OFFSET $2", MAX_RETURN_AMOUNT, MAX_RETURN_AMOUNT * params.page, "%" + params.search + "%")
+	} 
+	
+	return dbpool.Query(context.Background(), "SELECT item_id, item_name FROM items "+additional_params+" LIMIT $1 OFFSET $2", MAX_RETURN_AMOUNT, MAX_RETURN_AMOUNT * params.page)
 }
 
 func main() {
-	conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URI"))
+	dbpool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URI"))
 	if err != nil {
 		panic("Failed to access db")
 	}
-	defer conn.Close(context.Background())
+	defer dbpool.Close()
 
 	e := echo.New()
 	e.GET("/items/list", func(c echo.Context) error {
@@ -79,9 +82,9 @@ func main() {
 		params.sorting = c.QueryParam("sort")
 		params.sort_asc = c.QueryParam("sort_order") == "asc"
 
-		rows, err := conn.Query(context.Background(), getSQLQuery(params))
-		fmt.Println(getSQLQuery(params))
+		rows, err := getSQLQuery(params, dbpool)
 		if err != nil {
+			fmt.Println(err)
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 		var item_id int64
@@ -97,11 +100,14 @@ func main() {
 	})
 
 	e.GET("/item", func(c echo.Context) error {
-		order_id, err := strconv.Atoi(c.QueryParam("id"))
+		item_id, err := strconv.Atoi(c.QueryParam("id"))
 		if err == nil {
-			row := conn.QueryRow(context.Background(), "SELECT * FROM items WHERE item_id = " + strconv.Itoa(order_id))
+			row := dbpool.QueryRow(context.Background(), "SELECT * FROM items WHERE item_id=$1", item_id)
 			var info ItemInfo
-			row.Scan(&info.Item_id, &info.Item_name, &info.Item_amount, &info.Item_price, &info.Item_description)
+			err := row.Scan(&info.Item_id, &info.Item_name, &info.Item_amount, &info.Item_price, &info.Item_description, &info.ItemBoughts)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusBadRequest)
+			}
 			return c.JSON(http.StatusOK, &info)
 		}
 		return echo.NewHTTPError(http.StatusBadRequest)

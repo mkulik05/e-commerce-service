@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	kafka "github.com/segmentio/kafka-go"
 )
@@ -23,14 +24,12 @@ type Order struct {
 	Delivery_addr string `json:"delivery_addr"`
 }
 
-func getFreeId(conn *pgx.Conn) int {
+func getFreeId(conn *pgxpool.Pool) int {
 	for {
 		n := rand.N(999_999_999)
 		row := conn.QueryRow(context.Background(), "SELECT order_id FROM orders WHERE order_id=$1 ", n)
 		var id int
-		err := row.Scan(&id)
-		fmt.Println(n, id, err)
-		
+		err := row.Scan(&id)		
 		if err == pgx.ErrNoRows {
 			return n
 		}
@@ -42,43 +41,50 @@ func newKafkaWriter(kafkaURL, topic string) *kafka.Writer {
 		Addr:     kafka.TCP(kafkaURL),
 		Topic:    topic,
 		Balancer: &kafka.LeastBytes{},
+		BatchSize:    1,
+    	BatchTimeout: 10 * time.Millisecond,
 	}
 }
 
 
 func main() {
 
-	e := echo.New()
-	e.POST("/order", func(c echo.Context) error {
-		conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URI"))
-		if err != nil {
-			panic("Failed to access db")
-		}
-		defer conn.Close(context.Background())
-		fmt.Println(1)
-		writer := newKafkaWriter("192.168.0.109:9094", topic)
-		defer writer.Close()
+	dbpool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URI"))
+	if err != nil {
+		panic("Failed to access db")
+	}
+	defer dbpool.Close()
 
-		fmt.Println(2)
+	writer := newKafkaWriter(os.Getenv("KAFKA_URL"), topic)
+	defer writer.Close()
+
+	e := echo.New()
+	e.POST("/order", func(c echo.Context) error {	
+
 		order := new(Order)
 		if err := c.Bind(order); err != nil {
 			return c.String(http.StatusBadRequest, "bad request")
 		}
-		fmt.Println(3)
+
 		// TODO: add retrival of user_id from JWT token if present, -1 otherwise
-		order_id := getFreeId(conn)
+		// TODO: switch to json in order (to support multiple number of one item)
+		order_id := getFreeId(dbpool)
 		user_id := -1;
-		fmt.Println(33)
-		_, search_err := conn.Query(context.Background(), "INSERT INTO orders (time, order_id, items_id, delivery_addr, user_id) VALUES ($1, $2, $3, $4, $5)", time.Now(), order_id, order.Items_id, order.Delivery_addr, user_id)
-		fmt.Println(4)
+
+		_, search_err := dbpool.Query(context.Background(), "INSERT INTO orders (time, order_id, items_id, delivery_addr, user_id) VALUES ($1, $2, $3, $4, $5)", time.Now(), order_id, order.Items_id, order.Delivery_addr, user_id)
+		
 		if search_err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 
+		for _, v := range order.Items_id {
+			dbpool.Query(context.Background(), "UPDATE items SET times_bought = times_bought + 1 WHERE item_id = $1", v)
+		}
+
 		value, _ := json.Marshal(order)
-		fmt.Println(4)
+
 		kafka_err := writer.WriteMessages(context.Background(), kafka.Message{Value: value}) 
-		fmt.Println(5)
+
 		if kafka_err != nil {
 			fmt.Println(kafka_err)
 		}
