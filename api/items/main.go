@@ -42,7 +42,7 @@ func getSQLQuery(params RequestParams, dbpool *pgxpool.Pool) (pgx.Rows, error) {
 
 	switch params.sorting {
 	case "price":
-		additional_params += "ORDER BY price"
+		additional_params += "ORDER BY item_price"
 		sorting = true
 	case "popularity":
 		additional_params += "ORDER BY times_bought"
