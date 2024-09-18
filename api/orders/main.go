@@ -24,10 +24,10 @@ type Order struct {
 	Delivery_addr string `json:"delivery_addr"`
 }
 
-func getFreeId(conn *pgxpool.Pool) int {
+func getFreeId(tx pgx.Tx) int {
 	for {
 		n := rand.N(999_999_999)
-		row := conn.QueryRow(context.Background(), "SELECT order_id FROM orders WHERE order_id=$1 ", n)
+		row := tx.QueryRow(context.Background(), "SELECT order_id FROM orders WHERE order_id=$1 ", n)
 		var id int
 		err := row.Scan(&id)		
 		if err == pgx.ErrNoRows {
@@ -60,7 +60,7 @@ func main() {
 
 	e := echo.New()
 	e.POST("/order", func(c echo.Context) error {	
-
+		ctx := context.Background()
 		order := new(Order)
 		if err := c.Bind(order); err != nil {
 			return c.String(http.StatusBadRequest, "bad request")
@@ -68,18 +68,36 @@ func main() {
 
 		// TODO: add retrival of user_id from JWT token if present, -1 otherwise
 		// TODO: switch to json in order (to support multiple number of one item)
-		order_id := getFreeId(dbpool)
+
+		tx, err := dbpool.Begin(ctx)
+		batch := &pgx.Batch{}
+		if err != nil {
+			fmt.Println(err)
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+		defer tx.Rollback(ctx)
+
+		order_id := getFreeId(tx)
 		user_id := -1;
 
-		_, search_err := dbpool.Query(context.Background(), "INSERT INTO orders (time, order_id, items_id, delivery_addr, user_id) VALUES ($1, $2, $3, $4, $5)", time.Now(), order_id, order.Items_id, order.Delivery_addr, user_id)
+		
+
+		_, search_err := tx.Exec(ctx, "INSERT INTO orders (time, order_id, items_id, delivery_addr, user_id) VALUES ($1, $2, $3, $4, $5)", time.Now(), order_id, order.Items_id, order.Delivery_addr, user_id)
 		
 		if search_err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
-
+		
 		for _, v := range order.Items_id {
-			dbpool.Query(context.Background(), "UPDATE items SET times_bought = times_bought + 1 WHERE item_id = $1", v)
+			batch.Queue("UPDATE items SET times_bought = times_bought + 1 WHERE item_id = $1", v)
 		}
+
+		br := tx.SendBatch(ctx, batch)
+		br.Close()
+		if err = tx.Commit(ctx); err != nil {
+			fmt.Println(err)
+		}
+
 
 		value, _ := json.Marshal(order)
 
