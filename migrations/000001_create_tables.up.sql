@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS auth_data (
 CREATE TABLE IF NOT EXISTS orders (
     "time" TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     order_id BIGSERIAL PRIMARY KEY,
-    items_id BIGINT[] NOT NULL,
+    items text NOT NULL,
     delivery_addr TEXT NOT NULL,
     user_id BIGINT
 );

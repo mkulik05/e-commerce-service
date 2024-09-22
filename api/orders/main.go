@@ -19,13 +19,13 @@ const topic = "new-order"
 const partition = 0
 
 type Order struct {
-	ItemsID       []int `json:"items_id"`
+	Items       map[int]int `json:"items"`
 	DeliveryAddr  string `json:"delivery_addr"`
 }
 
 type ReturnOrder struct {
 	OrderID      int   `json:"order_id"`
-	ItemsID      []int `json:"items_id"`
+	Items      map[int]int `json:"items"`
 	DeliveryAddr string `json:"delivery_addr"`
 }
 
@@ -79,6 +79,7 @@ func main() {
 	
 		tx, err := dbpool.Begin(ctx)
 		if err != nil {
+			fmt.Println(1, err)
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 		defer tx.Rollback(ctx)
@@ -96,17 +97,21 @@ func main() {
 			}
 		}
 	
-
+		// before inserting order into db convert it to JSON
+		// so as a key there will be item id, as value - item amount
+		items, _ := json.Marshal(order.Items)
 		var orderID int
-		err = tx.QueryRow(ctx, "INSERT INTO orders (time, items_id, delivery_addr, user_id) VALUES ($1, $2, $3, $4) RETURNING order_id",
-			time.Now(), order.ItemsID, order.DeliveryAddr, userID).Scan(&orderID)
+		err = tx.QueryRow(ctx, "INSERT INTO orders (time, items, delivery_addr, user_id) VALUES ($1, $2, $3, $4) RETURNING order_id",
+			time.Now(), items, order.DeliveryAddr, userID).Scan(&orderID)
 	
 		if err != nil {
+			fmt.Println(2, err)
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 	
 		batch := &pgx.Batch{}
-		for _, v := range order.ItemsID {
+		
+		for _, v := range order.Items {
 			batch.Queue("UPDATE items SET times_bought = times_bought + 1 WHERE item_id = $1", v)
 		}
 	
@@ -138,7 +143,7 @@ func main() {
 		}
 
 		userID := int(claims["user_id"].(float64))
-		rows, err := dbpool.Query(context.Background(), "SELECT order_id, items_id, delivery_addr FROM orders WHERE user_id=$1", userID)
+		rows, err := dbpool.Query(context.Background(), "SELECT order_id, items, delivery_addr FROM orders WHERE user_id=$1", userID)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
@@ -147,9 +152,11 @@ func main() {
 		var orders []ReturnOrder
 		for rows.Next() {
 			var order ReturnOrder
-			if err := rows.Scan(&order.OrderID, &order.ItemsID, &order.DeliveryAddr); err != nil {
+			var items_str string;
+			if err := rows.Scan(&order.OrderID, &items_str, &order.DeliveryAddr); err != nil {
 				return echo.NewHTTPError(http.StatusInternalServerError)
 			}
+			json.Unmarshal([]byte(items_str), &order.Items)
 			orders = append(orders, order)
 		}
 
