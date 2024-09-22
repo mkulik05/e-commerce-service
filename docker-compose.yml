@@ -45,6 +45,17 @@ services:
       db:
         condition: service_healthy
         restart: true
+  auth:
+    build: api/auth
+    restart: always
+    environment: 
+      DATABASE_URI: ${DATABASE_URI}
+    container_name: auth
+
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
 
   orders:
     build: api/orders
@@ -110,6 +121,8 @@ services:
     - NGINX_PORT=80
     - ITEMS_ADDR=items:8081
     - ORDERS_ADDR=orders:8082
+    - AUTH_ADDR=auth:8083
     depends_on:
       - items
       - orders
+      - auth

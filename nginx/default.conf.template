@@ -13,4 +13,8 @@ server {
     location /item {
         proxy_pass         http://${ITEMS_ADDR}/item;
     }
+
+    location /auth/ {
+        proxy_pass         http://${AUTH_ADDR}/;
+    }
 }

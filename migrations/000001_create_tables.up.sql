@@ -1,22 +1,22 @@
 CREATE TABLE IF NOT EXISTS items (
-    item_id bigint NOT NULL,
-    item_name text NOT NULL,
-    item_amount integer NOT NULL,
-    item_price bigint NOT NULL,
-    item_description text,
-    times_bought integer NOT NULL
+    item_id BIGSERIAL PRIMARY KEY,
+    item_name TEXT NOT NULL,
+    item_amount INTEGER NOT NULL,
+    item_price BIGINT NOT NULL,
+    item_description TEXT,
+    times_bought INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS auth_data (
-    login text NOT NULL,
-    pwd_hash text NOT NULL,
-    user_id bigint NOT NULL
+    login TEXT UNIQUE NOT NULL,
+    pwd_hash TEXT NOT NULL,
+    user_id BIGSERIAL PRIMARY KEY
 );
 
 CREATE TABLE IF NOT EXISTS orders (
-    "time" timestamp without time zone NOT NULL,
-    order_id bigint NOT NULL,
-    items_id bigint[] NOT NULL,
-    delivery_addr text NOT NULL,
-    user_id bigint
+    "time" TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    order_id BIGSERIAL PRIMARY KEY,
+    items_id BIGINT[] NOT NULL,
+    delivery_addr TEXT NOT NULL,
+    user_id BIGINT
 );
