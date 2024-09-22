@@ -68,7 +68,7 @@ func main() {
 	defer dbpool.Close()
 
 	e := echo.New()
-	e.GET("/items/list", func(c echo.Context) error {
+	e.GET("/list", func(c echo.Context) error {
 		params := RequestParams{"", 1, "", true};
 		page_index, err := strconv.Atoi(c.QueryParam("page"))
 		
