@@ -126,3 +126,19 @@ services:
       - items
       - orders
       - auth
+
+  items_updater:
+    build: items_updater
+    restart: always
+    environment: 
+      DATABASE_URI: ${DATABASE_URI}
+      KAFKA_URL: ${KAFKA_URL}
+    container_name: items_updater
+
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+      kafka:
+        condition: service_healthy
+        restart: true
