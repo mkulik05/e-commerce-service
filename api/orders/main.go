@@ -16,7 +16,7 @@ import (
 )
 
 const topic = "new-order"
-const partition = 0
+// const partition = 0
 
 type Order struct {
 	Items       map[int]int `json:"items"`

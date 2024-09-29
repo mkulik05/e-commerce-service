@@ -108,12 +108,14 @@ services:
       kafka-topics --bootstrap-server kafka:9092 --delete --topic health-check-topic
       echo -e 'Creating kafka topics'
       kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic new-order --replication-factor 1 --partitions 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic items-updates --replication-factor 1 --partitions 1
       "
 
-  web:
+  nginx:
     image: nginx
     volumes:
     - ./nginx:/etc/nginx/templates
+    - /statics:/statics
     ports:
     - "80:80"
     command: [nginx-debug, '-g', 'daemon off;']
@@ -126,6 +128,7 @@ services:
       - items
       - orders
       - auth
+
 
   items_updater:
     build: items_updater
@@ -142,3 +145,8 @@ services:
       kafka:
         condition: service_healthy
         restart: true
+
+  client-builder:
+    build: ./web
+    volumes:
+      - /statics:/statics/dist

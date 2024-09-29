@@ -3,16 +3,15 @@ server {
 
     resolver 127.0.0.11 ipv6=off;
 
+    root /statics;
     location /orders/ {
         proxy_pass         http://${ORDERS_ADDR}/;
     }
 
     location /items/ {
-        proxy_pass         http://${ITEMS_ADDR};
+        proxy_pass         http://${ITEMS_ADDR}/;
     }
-    location /item {
-        proxy_pass         http://${ITEMS_ADDR}/item;
-    }
+
 
     location /auth/ {
         proxy_pass         http://${AUTH_ADDR}/;

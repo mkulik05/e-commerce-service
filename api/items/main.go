@@ -27,6 +27,7 @@ type ItemInfo struct {
 type LItemInfo struct {
 	Id   int64 `json:"id"`
 	Name string `json:"name"`
+	Price int `json:"price"`
 }
 
 type RequestParams struct {
@@ -34,6 +35,7 @@ type RequestParams struct {
 	page     int16
 	sorting  string
 	sort_asc bool
+	
 }
 
 func getSQLQuery(params RequestParams, dbpool *pgxpool.Pool) (pgx.Rows, error) {
@@ -54,10 +56,10 @@ func getSQLQuery(params RequestParams, dbpool *pgxpool.Pool) (pgx.Rows, error) {
 	}
 
 	if params.search != "" {
-		return dbpool.Query(context.Background(), "SELECT item_id, item_name FROM items WHERE item_name LIKE $3 "+additional_params+" LIMIT $1 OFFSET $2", MAX_RETURN_AMOUNT, MAX_RETURN_AMOUNT * params.page, "%" + params.search + "%")
+		return dbpool.Query(context.Background(), "SELECT item_id, item_name, item_price FROM items WHERE item_name LIKE $2 "+additional_params+" OFFSET $1", MAX_RETURN_AMOUNT * params.page, "%" + params.search + "%")
 	} 
 	
-	return dbpool.Query(context.Background(), "SELECT item_id, item_name FROM items "+additional_params+" LIMIT $1 OFFSET $2", MAX_RETURN_AMOUNT, MAX_RETURN_AMOUNT * params.page)
+	return dbpool.Query(context.Background(), "SELECT item_id, item_name, item_price FROM items "+additional_params+" OFFSET $1", MAX_RETURN_AMOUNT * params.page)
 }
 
 func main() {
@@ -69,34 +71,51 @@ func main() {
 
 	e := echo.New()
 	e.GET("/list", func(c echo.Context) error {
-		params := RequestParams{"", 1, "", true};
+		params := RequestParams{"", 1, "", true}
 		page_index, err := strconv.Atoi(c.QueryParam("page"))
-		
+	
 		if err != nil {
 			params.page = 0
 		} else {
 			params.page = int16(page_index)
 		}
-
+	
 		params.search = c.QueryParam("search")
 		params.sorting = c.QueryParam("sort")
 		params.sort_asc = c.QueryParam("sort_order") == "asc"
-
+	
 		rows, err := getSQLQuery(params, dbpool)
 		if err != nil {
 			fmt.Println(err)
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
+		
 		var item_id int64
 		var item_name string
+		var item_price int
 		results := make([]LItemInfo, 0, MAX_RETURN_AMOUNT)
+		
+		totalAmount := 0
 		for rows.Next() {
-			rows.Scan(&item_id, &item_name)
-			results = append(results, LItemInfo{item_id, item_name})
+			rows.Scan(&item_id, &item_name, &item_price)
+			if totalAmount >= MAX_RETURN_AMOUNT {
+				totalAmount++
+				continue
+			}
+			results = append(results, LItemInfo{item_id, item_name, item_price})
+			totalAmount++
 		}
-
-		return c.JSON(http.StatusOK, &results)
-
+		totalAmount += (int)(MAX_RETURN_AMOUNT * params.page);
+		res := totalAmount / MAX_RETURN_AMOUNT;
+		if totalAmount % MAX_RETURN_AMOUNT != 0 {
+			res++
+		}
+		response := map[string]interface{}{
+			"amount": res,
+			"items":  results,
+		}
+	
+		return c.JSON(http.StatusOK, response)
 	})
 
 	e.GET("/item", func(c echo.Context) error {
