@@ -9,6 +9,7 @@ import "./index.css";
 import Root from "./routes/root";
 import ErrorPage from "./error-page";
 import Item from "./routes/item";
+import Shoppery from "./routes/shoppery";
 
 const router = createBrowserRouter([
   {
@@ -19,6 +20,11 @@ const router = createBrowserRouter([
   {
     path: "/item",
     element: <Item />,
+    errorElement: <ErrorPage />,
+  },
+  {
+    path: "/shoppery",
+    element: <Shoppery />,
     errorElement: <ErrorPage />,
   },
 ]);

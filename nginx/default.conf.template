@@ -4,6 +4,10 @@ server {
     resolver 127.0.0.11 ipv6=off;
 
     root /statics;
+    location / {
+        try_files $uri /index.html;
+    }
+
     location /orders/ {
         proxy_pass         http://${ORDERS_ADDR}/;
     }
@@ -16,4 +20,5 @@ server {
     location /auth/ {
         proxy_pass         http://${AUTH_ADDR}/;
     }
+
 }

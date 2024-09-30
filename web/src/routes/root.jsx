@@ -50,6 +50,7 @@ export default function Shop() {
     <div id="shop" className="wrapper">
       <header>
         <h1>Shop</h1>
+        <Link to={`/shoppery`}>Shoppery</Link>
       </header>
       <form id="search-form" role="search" onSubmit={handleSearch}>
         <input
