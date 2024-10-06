@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/segmentio/kafka-go"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 const topic = "new-order"
@@ -100,7 +101,7 @@ func main() {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 		var orderID int
-		err = tx.QueryRow(ctx, "INSERT INTO orders (time, items, delivery_addr, user_id) VALUES ($1, $2, $3, $4) RETURNING order_id",
+		err = tx.QueryRow(ctx, "INSERT INTO orders (or_time, or_items, or_delivery_addr, or_user_id) VALUES ($1, $2, $3, $4) RETURNING or_id",
 			time.Now(), items, order.DeliveryAddr, userID).Scan(&orderID)
 	
 		if err != nil {
@@ -115,7 +116,7 @@ func main() {
 		batch := &pgx.Batch{}
 		
 		for _, v := range order.Items {
-			batch.Queue("UPDATE items SET times_bought = times_bought + 1 WHERE item_id = $1", v)
+			batch.Queue("UPDATE items SET it_times_bought = it_times_bought + 1 WHERE it_id = $1", v)
 		}
 	
 		tx, err = dbpool.Begin(ctx)
@@ -124,7 +125,7 @@ func main() {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 		defer tx.Rollback(ctx);
-		
+
 		br := tx.SendBatch(ctx, batch)
 		if err := br.Close(); err != nil {
 			fmt.Println(err)
@@ -135,27 +136,28 @@ func main() {
 		}
 	
 		value, _ := json.Marshal(order)
-		kafkaErr := writer.WriteMessages(context.Background(), kafka.Message{Value: value})
+		kafkaErr := writer.WriteMessages(context.Background(), kafka.Message{Key: []byte(strconv.Itoa(orderID)), Value: value})
 		if kafkaErr != nil {
 			fmt.Println(kafkaErr)
 		}
-		return c.JSON(http.StatusOK, echo.Map{"order_id": orderID})
+		return c.JSON(http.StatusOK, echo.Map{"status": "ok", "order_id": orderID})
 	})
 
 	e.GET("/list", func(c echo.Context) error {
 		token := c.Request().Header.Get("Authorization")
 		if token == "" {
-			return c.JSON(http.StatusForbidden, map[string]string{"error": "Unauthorized"})
+			return c.JSON(http.StatusForbidden, map[string]string{"status": "error", "error": "Unauthorized"})
 		}
 
 		claims, err := VerifyJWT(token)
 		if err != nil {
-			return c.JSON(http.StatusForbidden, map[string]string{"error": "Invalid token"})
+			return c.JSON(http.StatusForbidden, map[string]string{"status": "error", "error": "Invalid token"})
 		}
 
 		userID := int(claims["user_id"].(float64))
-		rows, err := dbpool.Query(context.Background(), "SELECT order_id, items, delivery_addr FROM orders WHERE user_id=$1", userID)
+		rows, err := dbpool.Query(context.Background(), "SELECT or_id, or_items, or_delivery_addr FROM orders WHERE or_user_id=$1", userID)
 		if err != nil {
+			fmt.Println(err)
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 		defer rows.Close()

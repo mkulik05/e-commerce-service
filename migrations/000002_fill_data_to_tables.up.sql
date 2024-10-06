@@ -1,4 +1,4 @@
-INSERT INTO auth_data (login, pwd_hash) VALUES
+INSERT INTO auth_data (ad_login, ad_pwd_hash) VALUES
 ('user1', 'hash1'),
 ('user2', 'hash2'),
 ('user3', 'hash3'),
@@ -20,7 +20,7 @@ INSERT INTO auth_data (login, pwd_hash) VALUES
 ('user19', 'hash19'),
 ('user20', 'hash20');
 
-INSERT INTO items (item_name, item_amount, item_price, item_description, times_bought) VALUES
+INSERT INTO items (it_name, it_amount, it_price, it_desc, it_times_bought) VALUES
 ('Laptop', 50, 100000, 'High performance laptop',0),
 ('Smartphone', 100, 30000, 'Latest model smartphone', 0),
 ('Headphones', 200, 5000, 'Noise-cancelling over-ear headphones', 0),
@@ -42,7 +42,7 @@ INSERT INTO items (item_name, item_amount, item_price, item_description, times_b
 ( 'VR Headset', 20, 40000, 'Virtual reality headset', 0),
 ( 'Cable Management Kit', 100, 500, 'Organize your cables', 0);
 
-INSERT INTO orders ("time", items, delivery_addr, user_id) VALUES
+INSERT INTO orders (or_time, or_items, or_delivery_addr, or_user_id) VALUES
 (NOW(), '{"1": 1, "2": 1}', '123 Main St, CityA', 1),
 (NOW(), '{"3": 1, "4": 1}', '456 Park Ave, CityB', 2),
 (NOW(), '{"5": 1, "6": 1}', '789 Elm St, CityC', 3),

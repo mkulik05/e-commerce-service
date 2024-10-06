@@ -59,34 +59,34 @@ func main() {
 	e.POST("/register", func(c echo.Context) error {
 		var params RequestParams
 		if err := c.Bind(&params); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+			return c.JSON(http.StatusBadRequest, map[string]string{"status": "error", "error": "Invalid input"})
 		}
 
 		var existingUser User
-		err := dbpool.QueryRow(context.Background(), "SELECT user_id, login FROM auth_data WHERE login=$1", params.Login).Scan(&existingUser.ID, &existingUser.Username)
+		err := dbpool.QueryRow(context.Background(), "SELECT ad_user_id, ad_login FROM auth_data WHERE ad_login=$1", params.Login).Scan(&existingUser.ID, &existingUser.Username)
 		if err == nil {
 			fmt.Println(existingUser)
-			return c.JSON(http.StatusConflict, map[string]string{"error": "Login is used"})
+			return c.JSON(http.StatusConflict, map[string]string{"status": "error", "error": "Login is used"})
 		}
 
 		hashedPassword := hashPassword(params.Pwd)
-		_, err = dbpool.Exec(context.Background(), "INSERT INTO auth_data (login, pwd_hash) VALUES ($1, $2)", params.Login, hashedPassword)
+		_, err = dbpool.Exec(context.Background(), "INSERT INTO auth_data (ad_login, ad_pwd_hash) VALUES ($1, $2)", params.Login, hashedPassword)
 		if err != nil {
 			fmt.Println(1, err)
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Could not register user"})
+			return c.JSON(http.StatusInternalServerError, map[string]string{"status": "error", "error": "Could not register user"})
 		}
 
 		var newUserID int
-		err = dbpool.QueryRow(context.Background(), "SELECT user_id FROM auth_data WHERE login=$1", params.Login).Scan(&newUserID)
+		err = dbpool.QueryRow(context.Background(), "SELECT ad_user_id FROM auth_data WHERE ad_login=$1", params.Login).Scan(&newUserID)
 		if err != nil {
 			fmt.Println(2, err)
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Could not retrieve user ID"})
+			return c.JSON(http.StatusInternalServerError, map[string]string{"status": "error", "error": "Could not retrieve user ID"})
 		}
 
 		tokenString, err := CreateJWT(params.Login, newUserID)
 		if err != nil {
 			fmt.Println(3, err)
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Could not create token"})
+			return c.JSON(http.StatusInternalServerError, map[string]string{"status": "error", "error": "Could not create token"})
 		}
 
 		c.SetCookie(&http.Cookie{
@@ -95,29 +95,29 @@ func main() {
 			Path:  "/",
 		})
 
-		return c.JSON(http.StatusOK, map[string]string{"token": tokenString})
+		return c.JSON(http.StatusOK, map[string]string{"status": "ok", "token": tokenString})
 	})
 
 	e.POST("/login", func(c echo.Context) error {
 		var params RequestParams
 		if err := c.Bind(&params); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+			return c.JSON(http.StatusBadRequest, map[string]string{"status": "error", "error": "Invalid input"})
 		}
 
 		var user User
-		err := dbpool.QueryRow(context.Background(), "SELECT user_id, login, pwd_hash FROM auth_data WHERE login=$1", params.Login).Scan(&user.ID, &user.Username, &user.Password)
+		err := dbpool.QueryRow(context.Background(), "SELECT ad_user_id, ad_login, ad_pwd_hash FROM auth_data WHERE ad_login=$1", params.Login).Scan(&user.ID, &user.Username, &user.Password)
 		if err != nil {
 			fmt.Println(err)
-			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid login credentials"})
+			return c.JSON(http.StatusUnauthorized, map[string]string{"status": "error", "error": "Invalid login credentials"})
 		}
 		fmt.Println(params.Pwd, user.Password, hashPassword(params.Pwd) )
 		if hashPassword(params.Pwd) != user.Password {
-			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid login credentials"})
+			return c.JSON(http.StatusUnauthorized, map[string]string{"status": "error", "error": "Invalid login credentials"})
 		}
 
 		tokenString, err := CreateJWT(user.Username, user.ID)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Could not create token"})
+			return c.JSON(http.StatusInternalServerError, map[string]string{"status": "error", "error": "Could not create token"})
 		}
 
 		c.SetCookie(&http.Cookie{
@@ -126,7 +126,7 @@ func main() {
 			Path:  "/",
 		})
 
-		return c.JSON(http.StatusOK, map[string]string{"token": tokenString})
+		return c.JSON(http.StatusOK, map[string]string{"status": "ok", "token": tokenString})
 	})
 
 	e.POST("/logout", func(c echo.Context) error {

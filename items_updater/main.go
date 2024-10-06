@@ -28,15 +28,15 @@
 	func handleMessage(dbpool *pgxpool.Pool, msg ItemMessage) error {
 		switch msg.Action {
 		case "add":
-			_, err := dbpool.Exec(context.Background(), "INSERT INTO items (item_name, item_amount, item_price, item_description, times_bought) VALUES ($1, $2, $3, $4, $5)",
+			_, err := dbpool.Exec(context.Background(), "INSERT INTO items (it_name, it_amount, it_price, it_desc, it_times_bought) VALUES ($1, $2, $3, $4, $5)",
 				msg.Item.ItemName, msg.Item.ItemAmount, msg.Item.ItemPrice, msg.Item.ItemDescription, msg.Item.TimesBought)
 			return err
 		case "modify":
-			_, err := dbpool.Exec(context.Background(), "UPDATE items SET item_name=$1, item_amount=$2, item_price=$3, item_description=$4, times_bought=$5 WHERE item_id=$6",
+			_, err := dbpool.Exec(context.Background(), "UPDATE items SET it_name=$1, it_amount=$2, it_price=$3, it_desc=$4, it_times_bought=$5 WHERE item_id=$6",
 				msg.Item.ItemName, msg.Item.ItemAmount, msg.Item.ItemPrice, msg.Item.ItemDescription, msg.Item.TimesBought, msg.Item.ItemID)
 			return err
 		case "delete":
-			_, err := dbpool.Exec(context.Background(), "DELETE FROM items WHERE item_id=$1", msg.Item.ItemID)
+			_, err := dbpool.Exec(context.Background(), "DELETE FROM items WHERE it_id=$1", msg.Item.ItemID)
 			return err
 		default:
 			return fmt.Errorf("unknown action: %s", msg.Action)

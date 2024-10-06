@@ -44,10 +44,10 @@ func getSQLQuery(params RequestParams, dbpool *pgxpool.Pool) (pgx.Rows, error) {
 
 	switch params.sorting {
 	case "price":
-		additional_params += "ORDER BY item_price"
+		additional_params += "ORDER BY it_price"
 		sorting = true
 	case "popularity":
-		additional_params += "ORDER BY times_bought"
+		additional_params += "ORDER BY it_times_bought"
 		sorting = true
 	}
 
@@ -56,10 +56,10 @@ func getSQLQuery(params RequestParams, dbpool *pgxpool.Pool) (pgx.Rows, error) {
 	}
 
 	if params.search != "" {
-		return dbpool.Query(context.Background(), "SELECT item_id, item_name, item_price FROM items WHERE item_name LIKE $2 "+additional_params+" OFFSET $1", MAX_RETURN_AMOUNT * params.page, "%" + params.search + "%")
+		return dbpool.Query(context.Background(), "SELECT it_id, it_name, it_price FROM items WHERE it_name LIKE $2 "+additional_params+" OFFSET $1", MAX_RETURN_AMOUNT * params.page, "%" + params.search + "%")
 	} 
 	
-	return dbpool.Query(context.Background(), "SELECT item_id, item_name, item_price FROM items "+additional_params+" OFFSET $1", MAX_RETURN_AMOUNT * params.page)
+	return dbpool.Query(context.Background(), "SELECT it_id, it_name, it_price FROM items "+additional_params+" OFFSET $1", MAX_RETURN_AMOUNT * params.page)
 }
 
 func main() {
@@ -121,7 +121,7 @@ func main() {
 	e.GET("/item", func(c echo.Context) error {
 		item_id, err := strconv.Atoi(c.QueryParam("id"))
 		if err == nil {
-			row := dbpool.QueryRow(context.Background(), "SELECT * FROM items WHERE item_id=$1", item_id)
+			row := dbpool.QueryRow(context.Background(), "SELECT (it_id, it_name, it_amount, it_price, it_item_desc, it_times_bought) FROM items WHERE it_id=$1", item_id)
 			var info ItemInfo
 			err := row.Scan(&info.Item_id, &info.Item_name, &info.Item_amount, &info.Item_price, &info.Item_description, &info.ItemBoughts)
 			if err != nil {
