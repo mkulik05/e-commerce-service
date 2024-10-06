@@ -56,10 +56,31 @@ func getSQLQuery(params RequestParams, dbpool *pgxpool.Pool) (pgx.Rows, error) {
 	}
 
 	if params.search != "" {
-		return dbpool.Query(context.Background(), "SELECT it_id, it_name, it_price FROM items WHERE it_name LIKE $2 "+additional_params+" OFFSET $1", MAX_RETURN_AMOUNT * params.page, "%" + params.search + "%")
+		return dbpool.Query(context.Background(), "SELECT it_id, it_name, it_price FROM items WHERE it_name LIKE $2 "+additional_params+" OFFSET $1 LIMIT $3", MAX_RETURN_AMOUNT * params.page, "%" + params.search + "%", MAX_RETURN_AMOUNT)
 	} 
 	
-	return dbpool.Query(context.Background(), "SELECT it_id, it_name, it_price FROM items "+additional_params+" OFFSET $1", MAX_RETURN_AMOUNT * params.page)
+	return dbpool.Query(context.Background(), "SELECT it_id, it_name, it_price FROM items "+additional_params+" OFFSET $1 LIMIT $2", MAX_RETURN_AMOUNT * params.page, MAX_RETURN_AMOUNT)
+}
+
+func getSQLQueryRecsAmount(params RequestParams, dbpool *pgxpool.Pool) (int, error) {
+	
+	
+	var row pgx.Row
+	if params.search != "" {
+		row = dbpool.QueryRow(context.Background(), "SELECT COUNT(*) FROM items WHERE it_name LIKE $1", "%" + params.search + "%")
+	} else {
+		row = dbpool.QueryRow(context.Background(), "SELECT COUNT(*) FROM items")
+	}
+	
+	var n int;
+	err := row.Scan(&n)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return n, nil
+
 }
 
 func main() {
@@ -83,7 +104,13 @@ func main() {
 		params.search = c.QueryParam("search")
 		params.sorting = c.QueryParam("sort")
 		params.sort_asc = c.QueryParam("sort_order") == "asc"
-	
+		
+
+		items_n, err := getSQLQueryRecsAmount(params, dbpool)
+		if err != nil {
+			fmt.Println(err)
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
 		rows, err := getSQLQuery(params, dbpool)
 		if err != nil {
 			fmt.Println(err)
@@ -95,19 +122,13 @@ func main() {
 		var item_price int
 		results := make([]LItemInfo, 0, MAX_RETURN_AMOUNT)
 		
-		totalAmount := 0
 		for rows.Next() {
 			rows.Scan(&item_id, &item_name, &item_price)
-			if totalAmount >= MAX_RETURN_AMOUNT {
-				totalAmount++
-				continue
-			}
 			results = append(results, LItemInfo{item_id, item_name, item_price})
-			totalAmount++
 		}
-		totalAmount += (int)(MAX_RETURN_AMOUNT * params.page);
-		res := totalAmount / MAX_RETURN_AMOUNT;
-		if totalAmount % MAX_RETURN_AMOUNT != 0 {
+		
+		res := items_n / MAX_RETURN_AMOUNT;
+		if items_n % MAX_RETURN_AMOUNT != 0 {
 			res++
 		}
 		response := map[string]interface{}{

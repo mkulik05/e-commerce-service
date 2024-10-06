@@ -8,9 +8,7 @@ import (
 	"os"
 	"strconv"
 	"time"
-
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/segmentio/kafka-go"
@@ -104,36 +102,21 @@ func main() {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 
-		batch := &pgx.Batch{}
 		for k, v := range order.Items {
 			fmt.Println(v)
 			tx.Exec(ctx, "INSERT INTO m2m_order_items (oi_order_id, oi_item_id, oi_item_amount) VALUES ($1, $2, $3)", orderID, k, v)
-			batch.Queue("UPDATE items SET it_times_bought = it_times_bought + $2 WHERE it_id = $1", k, v)
 		}
-
-
 
 		if err = tx.Commit(ctx); err != nil {
 			fmt.Println(4, err)
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
-	
-		tx, err = dbpool.Begin(ctx)
-		if err != nil {
-			fmt.Println(1, err)
-			return echo.NewHTTPError(http.StatusInternalServerError)
-		}
-		defer tx.Rollback(ctx);
 
-		br := tx.SendBatch(ctx, batch)
-		if err := br.Close(); err != nil {
-			fmt.Println(err)
+		for k, v := range order.Items {
+			dbpool.Exec(ctx, "UPDATE items SET it_times_bought = it_times_bought + $2 WHERE it_id = $1", k, v)
 		}
-		if err = tx.Commit(ctx); err != nil {
-			fmt.Println(err)
-			return echo.NewHTTPError(http.StatusInternalServerError)
-		}
-	
+
+
 		value, _ := json.Marshal(order)
 		kafkaErr := writer.WriteMessages(context.Background(), kafka.Message{Key: []byte(strconv.Itoa(orderID)), Value: value})
 		if kafkaErr != nil {

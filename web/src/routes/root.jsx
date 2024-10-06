@@ -39,7 +39,6 @@ export default function Shop() {
   const handlePageChange = async (page) => {
     setCurrentPage(page);
     navigate(`?search=${encodeURIComponent(searchQuery)}&page=${page}&sort=${sortCriteria}&sort_order=${sortOrder}`);
-    await fetchItems();
   };
 
   useEffect(() => {

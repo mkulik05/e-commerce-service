@@ -39,7 +39,7 @@ class WebsiteUser(HttpUser):
         url = "/orders/order"
         headers = {
             "Content-Type": "application/json",
-            "Authorization": self.jwt   for authorization
+            "Authorization": self.jwt   
         }
         data = {
             "items": {
