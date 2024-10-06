@@ -45,7 +45,7 @@ export default function Shop() {
   useEffect(() => {
     fetchItems();
   }, [currentPage, sortCriteria, sortOrder]);
-
+  
   return (
     <div id="shop" className="wrapper">
       <header>

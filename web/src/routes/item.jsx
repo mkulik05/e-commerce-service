@@ -14,6 +14,7 @@ export default function Item() {
         const response = await fetch(`/items/item?id=${itemId}`);
         const data = await response.json();
         setItem(data);
+        console.log(data)
       }
     };
 
@@ -48,11 +49,13 @@ export default function Item() {
     delete shoppery[itemId];
     setCookie('shoppery', shoppery, { path: '/' });
   };
-
-  const currentAmount = cookies.shoppery[itemId] || 0; // Get current amount from cookies
+  let currentAmount = 0
+  if (cookies.shoppery != undefined) {
+    currentAmount = cookies.shoppery[itemId] || 0; 
+  } 
 
   if (!item) {
-    return <p>Loading...</p>;
+    return <p></p>;
   }
 
   return (
@@ -62,7 +65,7 @@ export default function Item() {
       <p><strong>Amount Available:</strong> {item.item_amount}</p>
       <p><strong>Description:</strong> {item.item_description || "No description available."}</p>
       <p><strong>Times Bought:</strong> {item.item_bought}</p>
-      <p><strong>Current Amount in Shoppery:</strong> {currentAmount}</p> {/* Show current amount */}
+      <p><strong>Current Amount in Shoppery:</strong> {currentAmount}</p> 
 
       <div>
         <button className="shoppery-button" onClick={addToShoppery}>Add to Shoppery</button>

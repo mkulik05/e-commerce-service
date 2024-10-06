@@ -125,10 +125,15 @@ services:
     - ORDERS_ADDR=orders:8082
     - AUTH_ADDR=auth:8083
     depends_on:
-      - items
-      - orders
-      - auth
-
+      items:
+        condition: service_started
+      orders:
+        condition: service_started
+      auth:
+        condition: service_started
+      client-builder:
+        condition: service_completed_successfully
+  
 
   items_updater:
     build: items_updater
