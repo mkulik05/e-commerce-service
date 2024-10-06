@@ -36,7 +36,7 @@ register_login() {
         fi
     else
         echo "Request failed with exit code: $exit_code"
-        testsResult+=("Registration request failed")
+        testsResult+=("${RED}Registration request failed${NC}")
     fi
 }
 
@@ -74,7 +74,7 @@ if [ "$status" = "ok" ]; then
     echo -e "${GREEN}OK: Ordered succeeded${NC}"
     testsResult+=("${GREEN}OK: Ordered succeeded${NC}")
     order_id=$(echo "$order_response" | jq -r '.order_id')
-    
+
     # 6. Check kafka for new order 
     check_kafka_message $order_id
 

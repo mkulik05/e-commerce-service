@@ -81,10 +81,8 @@ func main() {
 	
 		
 		userID := -1
-		fmt.Println("lalala")
 		if token := c.Request().Header.Get("Authorization"); token != "" {
 			claims, err := VerifyJWT(token)
-			fmt.Println("========", err)
 			if err == nil {
 				if id, ok := claims["user_id"].(float64); ok {
 					userID = int(id)
@@ -92,31 +90,32 @@ func main() {
 			}
 		}
 	
-		// before inserting order into db convert it to JSON
-		// so as a key there will be item id, as value - item amount
-		items, _ := json.Marshal(order.Items)
 		tx, err := dbpool.Begin(ctx)
 		if err != nil {
 			fmt.Println(1, err)
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 		var orderID int
-		err = tx.QueryRow(ctx, "INSERT INTO orders (or_time, or_items, or_delivery_addr, or_user_id) VALUES ($1, $2, $3, $4) RETURNING or_id",
-			time.Now(), items, order.DeliveryAddr, userID).Scan(&orderID)
+		err = tx.QueryRow(ctx, "INSERT INTO orders (or_time, or_delivery_addr, or_user_id) VALUES ($1, $2, $3) RETURNING or_id",
+			time.Now(), order.DeliveryAddr, userID).Scan(&orderID)
 	
 		if err != nil {
 			fmt.Println(2, err)
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
-		if err = tx.Commit(ctx); err != nil {
-			fmt.Println(err)
-			return echo.NewHTTPError(http.StatusInternalServerError)
-		}
 
 		batch := &pgx.Batch{}
-		
-		for _, v := range order.Items {
-			batch.Queue("UPDATE items SET it_times_bought = it_times_bought + 1 WHERE it_id = $1", v)
+		for k, v := range order.Items {
+			fmt.Println(v)
+			tx.Exec(ctx, "INSERT INTO m2m_order_items (oi_order_id, oi_item_id, oi_item_amount) VALUES ($1, $2, $3)", orderID, k, v)
+			batch.Queue("UPDATE items SET it_times_bought = it_times_bought + $2 WHERE it_id = $1", k, v)
+		}
+
+
+
+		if err = tx.Commit(ctx); err != nil {
+			fmt.Println(4, err)
+			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 	
 		tx, err = dbpool.Begin(ctx)
@@ -155,7 +154,7 @@ func main() {
 		}
 
 		userID := int(claims["user_id"].(float64))
-		rows, err := dbpool.Query(context.Background(), "SELECT or_id, or_items, or_delivery_addr FROM orders WHERE or_user_id=$1", userID)
+		rows, err := dbpool.Query(context.Background(), "SELECT or_id, or_delivery_addr FROM orders WHERE or_user_id=$1", userID)
 		if err != nil {
 			fmt.Println(err)
 			return echo.NewHTTPError(http.StatusInternalServerError)
@@ -165,11 +164,28 @@ func main() {
 		var orders []ReturnOrder
 		for rows.Next() {
 			var order ReturnOrder
-			var items_str string;
-			if err := rows.Scan(&order.OrderID, &items_str, &order.DeliveryAddr); err != nil {
+			if err := rows.Scan(&order.OrderID, &order.DeliveryAddr); err != nil {
+				fmt.Println(err)
 				return echo.NewHTTPError(http.StatusInternalServerError)
 			}
-			json.Unmarshal([]byte(items_str), &order.Items)
+
+			items_rows, err := dbpool.Query(context.Background(), "SELECT oi_item_id, oi_item_amount FROM m2m_order_items WHERE oi_order_id=$1", order.OrderID)
+			if err != nil {
+				fmt.Println(err)
+				return echo.NewHTTPError(http.StatusInternalServerError)
+			}			
+		
+			order_items := make(map[int]int)
+			for items_rows.Next() {
+				var itemId, itemAmount int;
+				if err := items_rows.Scan(&itemId, &itemAmount); err != nil {
+					fmt.Println(err)
+					return echo.NewHTTPError(http.StatusInternalServerError)
+				}
+				order_items[itemId] = itemAmount
+			}
+			items_rows.Close()
+			order.Items = order_items
 			orders = append(orders, order)
 		}
 
