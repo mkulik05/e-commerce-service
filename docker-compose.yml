@@ -116,6 +116,7 @@ services:
     volumes:
     - ./nginx:/etc/nginx/templates
     - /statics:/statics
+    - ./logs:/var/log/nginx/
     ports:
     - "80:80"
     command: [nginx-debug, '-g', 'daemon off;']
@@ -155,3 +156,31 @@ services:
     build: ./web
     volumes:
       - /statics:/statics/dist
+  
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ./metrics/prometheus.yml/:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    depends_on:
+      - fluentd
+
+  fluentd:
+    image: fluent/fluentd:edge
+    ports:
+     - 24231:24231
+     - 24231:24231/udp
+    volumes:
+      - ./logs:/var/log/nginx
+      - ./logs:/var/log/fluentd
+      - ./metrics/fluent.conf:/fluentd/etc/fluent.conf
+    command: >
+          /bin/sh -c "gem install --user fluent-plugin-prometheus && fluentd -c /fluentd/etc/fluent.conf" 
+    depends_on:
+      - nginx
+
+volumes:
+  nginx_logs:
