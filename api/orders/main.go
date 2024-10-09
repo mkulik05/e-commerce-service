@@ -8,24 +8,44 @@ import (
 	"os"
 	"strconv"
 	"time"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/segmentio/kafka-go"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const topic = "new-order"
-// const partition = 0
+
+var (
+	requestCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "http_orders_requests_total",
+			Help: "Total number of HTTP requests",
+		},
+		[]string{"method", "endpoint", "status"},
+	)
+	requestDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "http_orders_request_duration_seconds",
+			Help:    "Duration of HTTP requests in seconds",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"method", "endpoint"},
+	)
+)
 
 type Order struct {
-	Items       map[int]int `json:"items"`
-	DeliveryAddr  string `json:"delivery_addr"`
+	Items        map[int]int `json:"items"`
+	DeliveryAddr string      `json:"delivery_addr"`
 }
 
 type ReturnOrder struct {
-	OrderID      int   `json:"order_id"`
-	Items      map[int]int `json:"items"`
-	DeliveryAddr string `json:"delivery_addr"`
+	OrderID      int            `json:"order_id"`
+	Items        map[int]int    `json:"items"`
+	DeliveryAddr string         `json:"delivery_addr"`
 }
 
 func newKafkaWriter(kafkaURL, topic string) *kafka.Writer {
@@ -57,7 +77,28 @@ func VerifyJWT(tokenStr string) (jwt.MapClaims, error) {
 	return nil, fmt.Errorf("invalid token")
 }
 
+func prometheusMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		start := time.Now()
+		err := next(c)
+		duration := time.Since(start).Seconds()
+
+		status := c.Response().Status
+		method := c.Request().Method
+		endpoint := c.Request().URL.Path
+
+		requestCounter.WithLabelValues(method, endpoint, strconv.Itoa(status)).Inc()
+		requestDuration.WithLabelValues(method, endpoint).Observe(duration)
+
+		return err
+	}
+}
+
 func main() {
+	// Register metrics with Prometheus
+	prometheus.MustRegister(requestCounter)
+	prometheus.MustRegister(requestDuration)
+
 	dbpool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URI"))
 	if err != nil {
 		panic("Failed to access db")
@@ -69,15 +110,16 @@ func main() {
 
 	e := echo.New()
 
+	// Use the middleware for metrics
+	e.Use(prometheusMiddleware)
+
 	e.POST("/order", func(c echo.Context) error {
 		ctx := context.Background()
 		order := new(Order)
 		if err := c.Bind(order); err != nil {
 			return c.String(http.StatusBadRequest, "bad request")
 		}
-	
-	
-		
+
 		userID := -1
 		if token := c.Request().Header.Get("Authorization"); token != "" {
 			claims, err := VerifyJWT(token)
@@ -87,7 +129,7 @@ func main() {
 				}
 			}
 		}
-	
+
 		tx, err := dbpool.Begin(ctx)
 		if err != nil {
 			fmt.Println(1, err)
@@ -96,7 +138,7 @@ func main() {
 		var orderID int
 		err = tx.QueryRow(ctx, "INSERT INTO orders (or_time, or_delivery_addr, or_user_id) VALUES ($1, $2, $3) RETURNING or_id",
 			time.Now(), order.DeliveryAddr, userID).Scan(&orderID)
-	
+
 		if err != nil {
 			fmt.Println(2, err)
 			return echo.NewHTTPError(http.StatusInternalServerError)
@@ -115,7 +157,6 @@ func main() {
 		for k, v := range order.Items {
 			dbpool.Exec(ctx, "UPDATE items SET it_times_bought = it_times_bought + $2 WHERE it_id = $1", k, v)
 		}
-
 
 		value, _ := json.Marshal(order)
 		kafkaErr := writer.WriteMessages(context.Background(), kafka.Message{Key: []byte(strconv.Itoa(orderID)), Value: value})
@@ -156,11 +197,11 @@ func main() {
 			if err != nil {
 				fmt.Println(err)
 				return echo.NewHTTPError(http.StatusInternalServerError)
-			}			
-		
+			}
+
 			order_items := make(map[int]int)
 			for items_rows.Next() {
-				var itemId, itemAmount int;
+				var itemId, itemAmount int
 				if err := items_rows.Scan(&itemId, &itemAmount); err != nil {
 					fmt.Println(err)
 					return echo.NewHTTPError(http.StatusInternalServerError)
@@ -174,6 +215,9 @@ func main() {
 
 		return c.JSON(http.StatusOK, orders)
 	})
+
+
+	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 
 	e.Logger.Fatal(e.Start(":8082"))
 }

@@ -51,6 +51,8 @@ services:
     environment: 
       DATABASE_URI: ${DATABASE_URI}
     container_name: auth
+    ports:
+      - 8083:8083
 
     depends_on:
       db:
@@ -181,6 +183,23 @@ services:
           /bin/sh -c "gem install --user fluent-plugin-prometheus && fluentd -c /fluentd/etc/fluent.conf" 
     depends_on:
       - nginx
+  
+  grafana:
+    image: grafana/grafana
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    ports:
+      - 3333:3000
+    depends_on:
+      - prometheus
+
+  nginx-exporter:
+    image: bitnami/nginx-exporter
+    command: '--nginx.scrape-uri=http://nginx/status'
+    ports:
+      - 9113:9113
+    depends_on:
+      - nginx
 
 volumes:
-  nginx_logs:
+  grafana-storage:
